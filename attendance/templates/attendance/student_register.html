@@ -137,6 +137,19 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label for="section" class="form-label">
+                            <i class="bi bi-collection"></i> Section <span class="text-danger">*</span>:
+                        </label>
+                        <select class="form-control" id="section" name="section" required>
+                            <option value="">-- Select Section --</option>
+                            {% for section in sections %}
+                                <option value="{{ section.id }}">{{ section.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Select your section from the list.</small>
+                    </div>
+                    
+                    <div class="mb-3">
                         <label for="adviser" class="form-label">
                             <i class="bi bi-person-badge"></i> Adviser:
                         </label>

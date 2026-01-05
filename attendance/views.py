@@ -3302,6 +3302,8 @@ def student_register(request):
     courses = Course.objects.filter(is_active=True).order_by('code')
     # Get all advisers for the dropdown
     advisers = Adviser.objects.all().order_by('name')
+    # Get active sections for the dropdown
+    sections = Section.objects.filter(is_active=True).order_by('code')
     
     if request.method == 'POST':
         # Get form data
@@ -3310,6 +3312,7 @@ def student_register(request):
         name = request.POST.get('name', '').strip()
         email = request.POST.get('email', '').strip().lower()  # Normalize email to lowercase
         course_id = request.POST.get('course', '').strip()
+        section_id = request.POST.get('section', '').strip()
         adviser_id = request.POST.get('adviser', '').strip()
         password = request.POST.get('password', '')
         password_confirm = request.POST.get('password_confirm', '')
@@ -3353,6 +3356,16 @@ def student_register(request):
                 course_obj = Course.objects.get(id=course_id, is_active=True)
             except Course.DoesNotExist:
                 errors.append("Please select a valid course.")
+        
+        # Validate and get section object (required)
+        section_obj = None
+        if not section_id:
+            errors.append("Section is required.")
+        else:
+            try:
+                section_obj = Section.objects.get(id=int(section_id), is_active=True)
+            except (Section.DoesNotExist, ValueError):
+                errors.append("Please select a valid section.")
         
         # Validate and get adviser object (optional)
         adviser_obj = None
@@ -3413,6 +3426,7 @@ def student_register(request):
                         name=name,
                         email=email,  # Email is already normalized
                         course=course_obj,
+                        section=section_obj,  # Section is required
                         adviser=adviser_obj,  # Save adviser if provided
                         user=user
                     )
@@ -3432,7 +3446,7 @@ Your registration details:
 - RFID ID: {student.rfid_id}
 - Student ID: {student.student_id if student.student_id else 'Not provided'}
 - Course: {student.course.name if student.course else 'Not assigned'}
-- Section: {student.get_section_display() if student.section else 'Not assigned'}
+- Section: {student.section.name if student.section else 'Not assigned'}
 - Adviser: {student.adviser.name if student.adviser else 'Not assigned'}
 
 You can now log in to the system using your RFID ID to track your attendance.
@@ -3463,7 +3477,7 @@ Attendance RFID Monitoring System"""
                 messages.error(request, f"An error occurred during registration: {str(e)}")
                 print(f"Registration error: {traceback.format_exc()}")  # Log for debugging
     
-    return render(request, 'attendance/student_register.html', {'courses': courses, 'advisers': advisers})
+    return render(request, 'attendance/student_register.html', {'courses': courses, 'advisers': advisers, 'sections': sections})
 
 def student_login(request):
     """Student login view - students login with RFID ID only"""
