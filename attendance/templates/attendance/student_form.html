@@ -12,6 +12,13 @@
             <div class="card-body">
                 <form method="POST">
                     {% csrf_token %}
+                    {% if query_params %}
+                        {% for key, value in query_params.items %}
+                            {% if value %}
+                                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="rfid_id" class="form-label">RFID ID *</label>
@@ -90,7 +97,7 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check-circle"></i> Save
                         </button>
-                        <a href="{% url 'student_list' %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'student_list' %}{{ query_string }}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
             </div>

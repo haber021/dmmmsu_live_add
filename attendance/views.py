@@ -637,6 +637,20 @@ def student_list(request):
     if hasattr(request.user, 'adviser_profile'):
         current_adviser_id = request.user.adviser_profile.id
     
+    # Build query string for preserving filters in edit links
+    query_parts = []
+    if adviser_filter:
+        query_parts.append(f'adviser={adviser_filter}')
+    if course_filter:
+        query_parts.append(f'course={course_filter}')
+    if search_query:
+        query_parts.append(f'search={search_query}')
+    if search_by and search_by != 'all':
+        query_parts.append(f'search_by={search_by}')
+    query_string = '&'.join(query_parts) if query_parts else ''
+    if query_string:
+        query_string = '?' + query_string
+    
     context = {
         'students': page_obj,
         'search_query': search_query,
@@ -651,6 +665,7 @@ def student_list(request):
         'filter_courses': filter_courses,  # Filtered courses for filter dropdown
         'filter_advisers': filter_advisers,  # Filtered advisers for filter dropdown
         'sections': sections,
+        'query_string': query_string,  # Query string for edit links
     }
     return render(request, 'attendance/student_list.html', context)
 
@@ -845,6 +860,19 @@ def student_edit(request, student_id):
                 messages.error(request, "You don't have permission to edit this student.")
                 return redirect('student_list')
     
+    # Get query parameters to preserve filters (from GET or POST)
+    query_params = {}
+    if request.method == 'GET':
+        # Preserve query parameters from the edit page URL
+        for key in ['adviser', 'course', 'search', 'search_by', 'page']:
+            if key in request.GET:
+                query_params[key] = request.GET.get(key)
+    elif request.method == 'POST':
+        # Get query parameters from hidden form fields or referrer
+        for key in ['adviser', 'course', 'search', 'search_by', 'page']:
+            if key in request.POST:
+                query_params[key] = request.POST.get(key)
+    
     if request.method == 'POST':
         try:
             student.rfid_id = request.POST.get('rfid_id')
@@ -895,7 +923,15 @@ def student_edit(request, student_id):
             student.adviser = adviser_obj
             student.save()
             messages.success(request, f"Student {student.name} updated successfully!")
-            return redirect('student_list')
+            
+            # Preserve query parameters in redirect
+            redirect_url = reverse('student_list')
+            if query_params:
+                query_string = '&'.join([f'{k}={v}' for k, v in query_params.items() if v])
+                if query_string:
+                    redirect_url += f'?{query_string}'
+            
+            return redirect(redirect_url)
         except Exception as e:
             messages.error(request, f"Error updating student: {str(e)}")
     
@@ -923,6 +959,13 @@ def student_edit(request, student_id):
     
     sections = Section.objects.filter(is_active=True).order_by('code')
     
+    # Build query string for cancel link and hidden fields
+    query_string = ''
+    if query_params:
+        query_string = '&'.join([f'{k}={v}' for k, v in query_params.items() if v])
+        if query_string:
+            query_string = '?' + query_string
+    
     return render(request, 'attendance/student_form.html', {
         'student': student, 
         'action': 'Edit', 
@@ -930,16 +973,34 @@ def student_edit(request, student_id):
         'courses': all_courses,
         'sections': sections,
         'default_course_id': default_course_id,
+        'query_params': query_params,
+        'query_string': query_string,
     })
 
 @login_required
 def student_delete(request, student_id):
+    # Get query parameters to preserve filters
+    query_params = {}
+    if request.method == 'POST':
+        # Get query parameters from hidden form fields
+        for key in ['adviser', 'course', 'search', 'search_by', 'page']:
+            if key in request.POST:
+                query_params[key] = request.POST.get(key)
+    
     if request.method == 'POST':
         student = get_object_or_404(Student, id=student_id)
         student_name = student.name
         student.delete()
         messages.success(request, f"Student {student_name} deleted successfully!")
-    return redirect('student_list')
+    
+    # Preserve query parameters in redirect
+    redirect_url = reverse('student_list')
+    if query_params:
+        query_string = '&'.join([f'{k}={v}' for k, v in query_params.items() if v])
+        if query_string:
+            redirect_url += f'?{query_string}'
+    
+    return redirect(redirect_url)
 
 @login_required
 def student_import_csv(request):

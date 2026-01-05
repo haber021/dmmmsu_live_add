@@ -119,13 +119,13 @@
                         <td><code>{{ student.rfid_id }}</code></td>
                         <td>{{ student.student_id|default:"<span class='text-muted'>N/A</span>" }}</td>
                         <td><strong>{{ student.name }}</strong></td>
-                        <td>{{ student.course|default:"<span class='text-muted'>N/A</span>" }}</td>
-                        <td><span class="badge bg-info">{{ student.get_section_display }}</span></td>
+                        <td>{% if student.course %}{{ student.course.code }} - {{ student.course.name }}{% else %}<span class='text-muted'>N/A</span>{% endif %}</td>
+                        <td>{% if student.section %}<span class="badge bg-info">{{ student.section.name }} ({{ student.section.code }})</span>{% else %}<span class='text-muted'>N/A</span>{% endif %}</td>
                         <td>{{ student.email }}</td>
-                        <td>{{ student.adviser|default:"<span class='text-muted'>N/A</span>" }}</td>
+                        <td>{% if student.adviser %}{{ student.adviser.name }}{% else %}<span class='text-muted'>N/A</span>{% endif %}</td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
-                                <a href="{% url 'student_edit' student.id %}" class="btn btn-outline-primary" title="Edit">
+                                <a href="{% url 'student_edit' student.id %}{{ query_string }}" class="btn btn-outline-primary" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <a href="{% url 'student_summary_detail' student.id %}" class="btn btn-outline-info" title="View Summary">
@@ -133,6 +133,18 @@
                                 </a>
                                 <form method="POST" action="{% url 'student_delete' student.id %}" class="d-inline delete-form" data-message="Are you sure you want to delete {{ student.name }}?">
                                     {% csrf_token %}
+                                    {% if adviser_filter %}
+                                        <input type="hidden" name="adviser" value="{{ adviser_filter }}">
+                                    {% endif %}
+                                    {% if course_filter %}
+                                        <input type="hidden" name="course" value="{{ course_filter }}">
+                                    {% endif %}
+                                    {% if search_query %}
+                                        <input type="hidden" name="search" value="{{ search_query }}">
+                                    {% endif %}
+                                    {% if search_by and search_by != 'all' %}
+                                        <input type="hidden" name="search_by" value="{{ search_by }}">
+                                    {% endif %}
                                     <button type="submit" class="btn btn-outline-danger" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </button>
