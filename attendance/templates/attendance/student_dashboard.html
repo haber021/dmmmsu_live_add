@@ -1,0 +1,303 @@
+{% extends 'attendance/base.html' %}
+
+{% block title %}My Attendance - Student Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        min-height: 120px;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .absence-item {
+        border-left: 4px solid #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-person-circle"></i> Welcome, {{ student.name }}!
+        </h2>
+        <p class="text-muted">Student ID: {{ student.student_id|default:student.rfid_id }} | Course: {{ student.course }} | Section: {{ student.get_section_display }}</p>
+    </div>
+    <a href="{% url 'student_enroll_subjects' %}" class="btn btn-success">
+        <i class="bi bi-book-plus"></i> Enroll in Subjects
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-success stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-check-circle"></i> Present
+                </h5>
+                <p class="card-text display-4">{{ total_present }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-x-circle"></i> Absent
+                </h5>
+                <p class="card-text display-4">{{ total_absent }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-clock"></i> Late
+                </h5>
+                <p class="card-text display-4">{{ total_late }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-graph-up"></i> Attendance Rate
+                </h5>
+                <p class="card-text display-4">{{ attendance_rate }}%</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-funnel"></i> Filter Attendance</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label for="subject_id" class="form-label">Subject</label>
+                <select class="form-select" id="subject_id" name="subject_id">
+                    <option value="">All Subjects</option>
+                    {% for subject in subjects %}
+                    <option value="{{ subject.id }}" {% if selected_subject_id_int == subject.id %}selected{% endif %}>
+                        {{ subject.code }} - {{ subject.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">Date From</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">Date To</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Subject-wise Statistics -->
+{% if subject_stats %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-book"></i> Subject-wise Attendance</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Subject Code</th>
+                        <th>Subject Name</th>
+                        <th>Total Days</th>
+                        <th>Present</th>
+                        <th>Absent</th>
+                        <th>Late</th>
+                        <th>Attendance Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in subject_stats %}
+                    <tr>
+                        <td><strong>{{ stat.subject.code }}</strong></td>
+                        <td>{{ stat.subject.name }}</td>
+                        <td>{{ stat.total }}</td>
+                        <td><span class="badge bg-success">{{ stat.present }}</span></td>
+                        <td><span class="badge bg-danger">{{ stat.absent }}</span></td>
+                        <td><span class="badge bg-warning">{{ stat.late }}</span></td>
+                        <td>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar {% if stat.rate >= 75 %}bg-success{% elif stat.rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                     role="progressbar" style="width: {{ stat.rate }}%">
+                                    {{ stat.rate }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Attendance Records with Time In/Out -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-clock-history"></i> My Attendance Records (Time In / Time Out)
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if recent_attendances %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Subject Name</th>
+                        <th>Time In</th>
+                        <th>Time Out</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in recent_attendances %}
+                    {% with attendance=item.attendance %}
+                    <tr>
+                        <td>
+                            <strong>{{ attendance.date|date:"M d, Y" }}</strong><br>
+                            <small class="text-muted">{{ attendance.date|date:"l" }}</small>
+                        </td>
+                        <td><strong>{{ attendance.subject.code }}</strong></td>
+                        <td>{{ attendance.subject.name }}</td>
+                        <td>
+                            {% if item.time_in_formatted %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-arrow-right-circle"></i> {{ item.time_in_formatted }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">--:--</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.time_out_formatted %}
+                                <span class="badge bg-info">
+                                    <i class="bi bi-arrow-left-circle"></i> {{ item.time_out_formatted }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">--:--</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if attendance.status == 'PRESENT' %}
+                                <span class="badge bg-success">{{ attendance.status }}</span>
+                            {% elif attendance.status == 'LATE' %}
+                                <span class="badge bg-warning">{{ attendance.status }}</span>
+                            {% elif attendance.status == 'ABSENT' %}
+                                <span class="badge bg-danger">{{ attendance.status }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ attendance.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No attendance records found{% if selected_subject_id or date_from or date_to %} for the selected filters{% endif %}.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Absences List -->
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-exclamation-triangle"></i> My Absences ({{ total_absent }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if absences %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Subject Name</th>
+                        <th>Instructor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for absence in absences %}
+                    <tr class="absence-item">
+                        <td>
+                            <strong>{{ absence.date|date:"M d, Y" }}</strong><br>
+                            <small class="text-muted">{{ absence.date|date:"l" }}</small>
+                        </td>
+                        <td><strong>{{ absence.subject.code }}</strong></td>
+                        <td>{{ absence.subject.name }}</td>
+                        <td>{% if absence.subject.instructor %}{{ absence.subject.instructor.name }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if absences.has_other_pages %}
+        <nav aria-label="Absences pagination">
+            <ul class="pagination justify-content-center">
+                {% if absences.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if selected_subject_id %}&subject_id={{ selected_subject_id }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ absences.previous_page_number }}{% if selected_subject_id %}&subject_id={{ selected_subject_id }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Previous</a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">Page {{ absences.number }} of {{ absences.paginator.num_pages }}</span>
+                </li>
+                
+                {% if absences.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ absences.next_page_number }}{% if selected_subject_id %}&subject_id={{ selected_subject_id }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ absences.paginator.num_pages }}{% if selected_subject_id %}&subject_id={{ selected_subject_id }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Last</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> Great! You have no absences{% if selected_subject_id or date_from or date_to %} for the selected filters{% endif %}.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

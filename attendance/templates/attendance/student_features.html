@@ -1,0 +1,376 @@
+{% extends 'attendance/base.html' %}
+
+{% block title %}Student Features Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .feature-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid #007bff;
+        min-height: 150px;
+    }
+    .feature-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+    .feature-card.dashboard {
+        border-left-color: #3b82f6;
+    }
+    .feature-card.enrollment {
+        border-left-color: #ffc107;
+    }
+    .feature-card.attendance {
+        border-left-color: #28a745;
+    }
+    .feature-card.reports {
+        border-left-color: #6f42c1;
+    }
+    .stat-card {
+        min-height: 120px;
+    }
+    .recent-item {
+        border-left: 3px solid #dee2e6;
+        padding-left: 15px;
+        margin-bottom: 10px;
+        transition: border-color 0.2s;
+    }
+    .recent-item:hover {
+        border-left-color: #007bff;
+    }
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+    .btn-purple {
+        background-color: #6f42c1;
+        border-color: #6f42c1;
+        color: #ffffff;
+    }
+    .btn-purple:hover {
+        background-color: #5a32a3;
+        border-color: #5a32a3;
+        color: #ffffff;
+    }
+    .btn-outline-purple {
+        color: #6f42c1;
+        border-color: #6f42c1;
+    }
+    .btn-outline-purple:hover {
+        background-color: #6f42c1;
+        border-color: #6f42c1;
+        color: #ffffff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="mb-1">
+        <i class="bi bi-person-circle"></i> Student Features Dashboard
+    </h2>
+    <p class="text-muted">Welcome, <strong>{{ student.name }}</strong> - Manage your attendance and enrollment</p>
+    <p class="text-muted">
+        <small>Student ID: {{ student.student_id|default:student.rfid_id }} | Course: {{ student.course }} | Section: {{ student.get_section_display }}</small>
+    </p>
+</div>
+
+<!-- Statistics Overview -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-white bg-success stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-check-circle"></i> Present
+                </h5>
+                <p class="card-text display-4">{{ total_present }}</p>
+                <small>Today: {{ present_today }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white bg-danger stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-x-circle"></i> Absent
+                </h5>
+                <p class="card-text display-4">{{ total_absent }}</p>
+                <small>Today: {{ absent_today }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white bg-warning stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-clock"></i> Late
+                </h5>
+                <p class="card-text display-4">{{ total_late }}</p>
+                <small>Today: {{ late_today }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white bg-info stat-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-graph-up"></i> Attendance Rate
+                </h5>
+                <p class="card-text display-4">{{ attendance_rate }}%</p>
+                <small>Total Records: {{ total_attendances }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Features -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-4">
+        <div class="card feature-card dashboard">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-speedometer2"></i> Attendance Dashboard
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">View your complete attendance records, statistics, and absences.</p>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total Records:</span>
+                        <strong>{{ total_attendances }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Attendance Rate:</span>
+                        <strong class="{% if attendance_rate >= 75 %}text-success{% elif attendance_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ attendance_rate }}%
+                        </strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Enrolled Subjects:</span>
+                        <strong>{{ enrolled_subjects_count }}</strong>
+                    </div>
+                </div>
+                <a href="{% url 'student_dashboard' %}" class="btn btn-primary w-100">
+                    <i class="bi bi-arrow-right-circle"></i> View Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card feature-card enrollment">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-book-plus"></i> Subject Enrollment
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Enroll or unenroll in subjects for the current semester.</p>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Currently Enrolled:</span>
+                        <strong>{{ enrolled_subjects_count }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Pending Requests:</span>
+                        <strong class="text-warning">{{ pending_enrollments }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Academic Year:</span>
+                        <strong>{{ academic_year }}</strong>
+                    </div>
+                </div>
+                <a href="{% url 'student_enroll_subjects' %}" class="btn btn-warning w-100">
+                    <i class="bi bi-arrow-right-circle"></i> Manage Enrollment
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card feature-card attendance">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-check"></i> Attendance Records
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">View detailed attendance records with time in/out information.</p>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Present Today:</span>
+                        <strong class="text-success">{{ present_today }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Absent Today:</span>
+                        <strong class="text-danger">{{ absent_today }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Late Today:</span>
+                        <strong class="text-warning">{{ late_today }}</strong>
+                    </div>
+                </div>
+                <a href="{% url 'student_dashboard' %}" class="btn btn-success w-100">
+                    <i class="bi bi-arrow-right-circle"></i> View Records
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card feature-card reports">
+            <div class="card-header bg-purple text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i> Reports & Analytics
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">View subject-wise attendance statistics and performance analytics.</p>
+                <div class="mb-3">
+                    <small class="text-muted">Access detailed reports for each enrolled subject.</small>
+                </div>
+                <a href="{% url 'student_dashboard' %}" class="btn btn-purple w-100">
+                    <i class="bi bi-arrow-right-circle"></i> View Reports
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Subject-wise Statistics -->
+{% if subject_stats %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-book"></i> Subject-wise Attendance Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Subject Code</th>
+                                <th>Subject Name</th>
+                                <th>Total Days</th>
+                                <th>Present</th>
+                                <th>Absent</th>
+                                <th>Late</th>
+                                <th>Attendance Rate</th>
+                                <th>Today's Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in subject_stats %}
+                            <tr>
+                                <td><strong>{{ stat.subject.code }}</strong></td>
+                                <td>{{ stat.subject.name }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ stat.total }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">{{ stat.present }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-danger">{{ stat.absent }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-warning text-dark">{{ stat.late }}</span>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar {% if stat.rate >= 75 %}bg-success{% elif stat.rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             role="progressbar" style="width: {{ stat.rate }}%">
+                                            {{ stat.rate }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if stat.present_today > 0 %}
+                                        <span class="badge bg-success">Present</span>
+                                    {% elif stat.absent_today > 0 %}
+                                        <span class="badge bg-danger">Absent</span>
+                                    {% elif stat.late_today > 0 %}
+                                        <span class="badge bg-warning text-dark">Late</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">No Record</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">No enrolled subjects found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Recent Attendance Records
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_attendance %}
+                <div class="list-group list-group-flush">
+                    {% for att in recent_attendance %}
+                    <div class="list-group-item recent-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <strong>{{ att.subject.code }}</strong> - {{ att.subject.name }}
+                                </h6>
+                                <p class="mb-1">
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar"></i> {{ att.date|date:"M d, Y" }} ({{ att.date|date:"l" }})
+                                    </small>
+                                </p>
+                                <small class="text-muted">
+                                    {% if att.time_in %}
+                                        <i class="bi bi-clock"></i> Time In: {{ att.time_in|time:"g:i A" }}
+                                    {% elif att.time %}
+                                        <i class="bi bi-clock"></i> Time: {{ att.time|time:"g:i A" }}
+                                    {% endif %}
+                                    {% if att.time_out %}
+                                        | Time Out: {{ att.time_out|time:"g:i A" }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <span class="badge 
+                                {% if att.status == 'PRESENT' %}bg-success
+                                {% elif att.status == 'ABSENT' %}bg-danger
+                                {% elif att.status == 'LATE' %}bg-warning text-dark
+                                {% else %}bg-secondary{% endif %}">
+                                {{ att.status }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-3">
+                    <a href="{% url 'student_dashboard' %}" class="btn btn-info btn-sm w-100">
+                        <i class="bi bi-arrow-right"></i> View All Attendance Records
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                    <p class="mt-2">No attendance records found</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

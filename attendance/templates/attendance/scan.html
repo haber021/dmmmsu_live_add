@@ -1,0 +1,252 @@
+{% extends 'attendance/base.html' %}
+
+{% block title %}RFID Attendance Scan{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-credit-card"></i> RFID Attendance Scan</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead mb-4 text-center">
+                    <span class="badge bg-success">Status: Ready for scanning...</span>
+                </p>
+                
+                <form method="POST" action="{% url 'scan' %}" id="scanForm">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="subject_id" class="form-label"><strong>Active Subject:</strong></label>
+                        {# Always show dropdown for easy subject selection #}
+                        <select class="form-select form-select-lg" id="subject_id" name="subject_id" onchange="changeSubject(this.value)" required>
+                            {% if not subject %}
+                            <option value="">-- Select Subject --</option>
+                            {% endif %}
+                            {% for subj in subjects %}
+                            <option value="{{ subj.id }}" {% if subject and subject.id == subj.id %}selected{% endif %}>
+                                {{ subj.code }} - {{ subj.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4 text-center">
+                        <label for="rfid_id" class="form-label"><strong>Scanning Area:</strong></label>
+                        <input type="text" class="form-control form-control-lg text-center" 
+                               id="rfid_id" name="rfid_id" 
+                               placeholder="Tap RFID Card here..." 
+                               autofocus autocomplete="off" style="font-size: 1.5rem;">
+                    </div>
+                    
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle"></i> Submit
+                        </button>
+                        <a href="{% url 'manual_entry' %}" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-pencil"></i> Manual Entry
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        {% if subject %}
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-calendar-week"></i> Subject Schedule</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>{{ subject.code }}</strong> - {{ subject.name }}</p>
+                <p class="mb-3 text-muted"><small>{% if subject.instructor %}{{ subject.instructor.name }}{% else %}—{% endif %}</small></p>
+                
+                {% if subject.schedules.exists %}
+                    <div class="schedule-list">
+                        {% for schedule in subject.schedules.all %}
+                            {% if schedule.day_of_week is not None %}
+                            <div class="mb-2 p-2 bg-light rounded">
+                                <strong>{{ schedule.get_day_name }}</strong><br>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> {{ schedule.time_start|time:"g:i A" }} - {{ schedule.time_end|time:"g:i A" }}
+                                </small>
+                            </div>
+                            {% elif schedule.date %}
+                            <div class="mb-2 p-2 bg-light rounded">
+                                <strong>{{ schedule.date|date:"M d, Y" }}</strong><br>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> {{ schedule.time_start|time:"g:i A" }} - {{ schedule.time_end|time:"g:i A" }}
+                                </small>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if subject.schedule_days and subject.schedule_time_start %}
+                        <div class="mt-2 pt-2 border-top">
+                            <small class="text-muted">
+                                <em>General: {{ subject.schedule_days }}, {{ subject.schedule_time_start|time:"g:i A" }}-{{ subject.schedule_time_end|time:"g:i A" }}</em>
+                            </small>
+                        </div>
+                    {% endif %}
+                {% elif subject.schedule_days and subject.schedule_time_start %}
+                    <div class="p-2 bg-light rounded">
+                        <strong>General Schedule:</strong><br>
+                        <small class="text-muted">
+                            {{ subject.schedule_days }}<br>
+                            <i class="bi bi-clock"></i> {{ subject.schedule_time_start|time:"g:i A" }} - {{ subject.schedule_time_end|time:"g:i A" }}
+                        </small>
+                    </div>
+                {% else %}
+                    <p class="text-muted"><small>No schedule defined for this subject.</small></p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Last Scan Details</h5>
+            </div>
+            <div class="card-body">
+                {% if last_scan %}
+                <p><strong>Student Name:</strong> {{ last_scan.student.name }}</p>
+                <p><strong>RFID ID:</strong> {{ last_scan.student.rfid_id }}</p>
+                <p><strong>Subject:</strong> {{ last_scan.subject.code }}</p>
+                <p><strong>Date:</strong> {{ last_scan.date|date:"m/d/Y" }}</p>
+                <p><strong>Time In:</strong> {{ last_scan.time_in|time:"g:i A"|default:"--:--" }}</p>
+                <p><strong>Time Out:</strong> {{ last_scan.time_out|time:"g:i A"|default:"--:--" }}</p>
+                <p>
+                    <strong>Status:</strong> 
+                    <span class="badge bg-{% if last_scan.status == 'PRESENT' %}success{% elif last_scan.status == 'LATE' %}warning{% else %}danger{% endif %}">
+                        {{ last_scan.status }} ✓
+                    </span>
+                </p>
+                {% else %}
+                <p class="text-muted">No scans yet today.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body">
+                <a href="{% url 'attendance_logs' %}" class="btn btn-outline-info w-100 mb-2">
+                    <i class="bi bi-list-check"></i> View Today's Scans
+                </a>
+                <a href="{% url 'live_monitor' %}" class="btn btn-outline-success w-100">
+                    <i class="bi bi-activity"></i> Live Monitor
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let isDropdownFocused = false;
+let isChangingSubject = false;
+
+function changeSubject(subjectId) {
+    if (subjectId && subjectId !== '') {
+        isChangingSubject = true;
+        const url = new URL(window.location.href);
+        url.searchParams.set('subject_id', subjectId);
+        window.location.href = url.toString();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('rfid_id');
+    const form = document.getElementById('scanForm');
+    const subjectSelect = document.getElementById('subject_id');
+    
+    // Only add dropdown event listeners if it's a select element
+    if (subjectSelect && subjectSelect.tagName === 'SELECT') {
+        // Prevent auto-submit when dropdown is being used
+        subjectSelect.addEventListener('focus', function() {
+            isDropdownFocused = true;
+        });
+        
+        subjectSelect.addEventListener('blur', function() {
+            isDropdownFocused = false;
+            // Refocus input after a short delay to allow dropdown change to process
+            setTimeout(() => {
+                if (!isChangingSubject) {
+                    input.focus();
+                }
+            }, 200);
+        });
+        
+        subjectSelect.addEventListener('mousedown', function() {
+            isDropdownFocused = true;
+        });
+    }
+    
+    // Ensure subject_id is always included when form submits
+    form.addEventListener('submit', function(e) {
+        const selectedSubject = subjectSelect ? subjectSelect.value : null;
+        if (!selectedSubject) {
+            e.preventDefault();
+            alert('Please select a subject first.');
+            if (subjectSelect && subjectSelect.focus) {
+                subjectSelect.focus();
+            }
+            return false;
+        }
+        // Make sure the subject_id is in the form
+        if (!form.querySelector('input[name="subject_id"]')) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'subject_id';
+            hiddenInput.value = selectedSubject;
+            form.appendChild(hiddenInput);
+        }
+    });
+    
+    // Focus input initially
+    input.focus();
+    
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && input.value.trim() && !isDropdownFocused) {
+            e.preventDefault();
+            form.submit();
+        }
+    });
+    
+    let submitTimeout;
+    input.addEventListener('input', function() {
+        // Don't auto-submit if dropdown is focused or being changed
+        if (isDropdownFocused || isChangingSubject) {
+            clearTimeout(submitTimeout);
+            return;
+        }
+        
+        clearTimeout(submitTimeout);
+        if (input.value.trim().length >= 5) {
+            submitTimeout = setTimeout(function() {
+                if (input.value.trim() && !isDropdownFocused && !isChangingSubject) {
+                    form.submit();
+                }
+            }, 500);
+        }
+    });
+    
+    input.addEventListener('blur', function() {
+        // Only refocus if dropdown is not being used
+        if (!isDropdownFocused && !isChangingSubject) {
+            setTimeout(() => {
+                // Only check activeElement if subjectSelect is a select element
+                if (!subjectSelect || subjectSelect.tagName !== 'SELECT' || document.activeElement !== subjectSelect) {
+                    input.focus();
+                }
+            }, 100);
+        }
+    });
+    
+    // Clear input and focus after page load
+    setTimeout(function() {
+        input.value = '';
+        input.focus();
+    }, 100);
+});
+</script>
+{% endblock %}
